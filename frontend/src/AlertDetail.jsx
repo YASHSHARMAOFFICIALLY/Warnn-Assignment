@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAlert } from "./api.js";
+import Severity from "./Severity.jsx";
 
 export default function AlertDetail({ id }) {
   const [alert, setAlert] = useState(null);
@@ -25,6 +26,7 @@ export default function AlertDetail({ id }) {
   if (!alert) return <p className="muted">Loading</p>;
 
   const r = alert.result;
+  const confidence = r ? Math.round(r.confidence * 100) : 0;
   return (
     <div>
       <h2>{alert.service}</h2>
@@ -38,12 +40,17 @@ export default function AlertDetail({ id }) {
           <dt>Probable cause</dt>
           <dd>{r.probable_cause}</dd>
           <dt>Confidence</dt>
-          <dd>{Math.round(r.confidence * 100)}%</dd>
+          <dd className="confidence">
+            <div className="bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={confidence}>
+              <div style={{ width: `${confidence}%` }} />
+            </div>
+            {confidence}%
+          </dd>
           <dt>Severity</dt>
-          <dd>{r.severity}</dd>
+          <dd><Severity value={r.severity} /></dd>
           <dt>Action items</dt>
           <dd>
-            <ul>{r.action_items.map((item, i) => <li key={i}>{item}</li>)}</ul>
+            <ol>{r.action_items.map((item, i) => <li key={i}>{item}</li>)}</ol>
           </dd>
         </dl>
       ) : (

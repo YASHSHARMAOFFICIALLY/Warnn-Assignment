@@ -96,7 +96,8 @@ th, td {
 
 th { font-weight: 600; color: var(--muted); }
 
-tr.selected { background: #eef2f6; }
+tr.selected { background: #e1eaf3; box-shadow: inset 3px 0 0 var(--accent); }
+tr.selected button.link { font-weight: 600; }
 
 .status { font-weight: 600; color: var(--muted); }
 .status.triaged { color: var(--ok); }
@@ -108,4 +109,24 @@ tr.selected { background: #eef2f6; }
 
 dt { font-weight: 600; margin-top: 12px; }
 dd { margin: 2px 0 0; }
-ul { margin: 0; padding-left: 18px; }
+ol { margin: 0; padding-left: 20px; }
+ol li { margin-bottom: 2px; }
+
+.nowrap { white-space: nowrap; }
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+.badge.sev1 { background: #b3261e; }
+.badge.sev2 { background: #c2570c; }
+.badge.sev3 { background: #f2c230; color: #3a2f00; }
+.badge.sev4 { background: #6b7078; }
+
+.confidence { display: flex; align-items: center; gap: 8px; }
+.bar { width: 140px; height: 8px; background: #e4e4e1; border: 1px solid var(--line); }
+.bar div { height: 100%; background: var(--accent); }
