@@ -31,7 +31,8 @@ Stack: Django + Django Ninja, Temporal (Python SDK), Pydantic AI, PostgreSQL, Re
 - `frontend/src/App.jsx`: page layout and the 3 second refresh of the list.
 - `frontend/src/AlertForm.jsx`: JSON textarea and Submit button.
 - `frontend/src/AlertList.jsx`: the alert table.
-- `frontend/src/AlertDetail.jsx`: probable cause, confidence, severity, action items.
+- `frontend/src/Severity.jsx`: the small colored severity badge.
+- `frontend/src/AlertDetail.jsx`: probable cause, confidence bar, severity, numbered action items.
 - `frontend/src/api.js`: fetch calls to the backend, URL from `VITE_API_URL`.
 - `frontend/src/style.css`: all styles.
 
@@ -90,7 +91,7 @@ LLM: with no `OPENROUTER_API_KEY` the call uses a local stand-in, not a real mod
 ## API
 
 - `POST /alerts` takes `service`, `message`, optional `severity_hint` and `timestamp`. Returns the alert. Bad input gives 422. If the workflow service is down it gives 503 and the alert is not kept, so the caller can just retry.
-- `GET /alerts` lists alerts with their status, newest first.
+- `GET /alerts` lists alerts with status, severity (once triaged) and received time, newest first.
 - `GET /alerts/{id}` returns the alert and its triage result (`null` until triaged), or 404.
 
 ## Design decisions and trade-offs
