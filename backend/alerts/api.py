@@ -32,6 +32,13 @@ class AlertOut(Schema):
     severity_hint: str
     timestamp: datetime | None
     status: str
+    created_at: datetime
+    severity: str | None = None
+
+    @staticmethod
+    def resolve_severity(alert):
+        result = getattr(alert, "result", None)
+        return result.severity if result else None
 
 
 class AlertDetailOut(AlertOut):
@@ -57,7 +64,7 @@ def create_alert(request, payload: AlertIn):
 
 @api.get("/alerts", response=list[AlertOut])
 def list_alerts(request):
-    return Alert.objects.order_by("-id")
+    return Alert.objects.select_related("result").order_by("-id")
 
 
 @api.get("/alerts/{alert_id}", response=AlertDetailOut)

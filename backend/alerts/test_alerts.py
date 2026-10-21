@@ -58,7 +58,10 @@ def test_get_result(client):
     body = client.get(f"/alerts/{alert.id}").json()
     assert body["result"]["severity"] == "Sev2"
     assert body["result"]["action_items"] == ["rollback"]
-    assert client.get("/alerts").json()[0]["status"] == "triaged"
+    first = client.get("/alerts").json()[0]
+    assert first["status"] == "triaged"
+    assert first["severity"] == "Sev2"
+    assert first["created_at"]
 
 
 def test_get_alert_without_result_and_missing_alert(client):
