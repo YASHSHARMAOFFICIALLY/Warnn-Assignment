@@ -1,131 +1,72 @@
 # alert-triage
 
-You paste a raw alert as JSON. The backend saves it and a Temporal workflow triages it: it finds the team that owns the service, asks an LLM for a probable cause, confidence, severity and action items, and saves the result. A small React page shows the alerts and their results.
+Paste an alert as JSON. The API saves it, a Temporal workflow asks an LLM for a probable cause, confidence, severity and action items, and a React page shows the result.
 
-Stack: Django + Django Ninja, Temporal (Python SDK), Pydantic AI, PostgreSQL, React + Vite.
+Django + Django Ninja, Temporal, Pydantic AI, Postgres, React + Vite.
 
-## What happens to one alert
+## Flow
 
-1. `POST /alerts` validates the JSON and saves it with status `received`. If the same service and message already exist, it returns that alert and stops.
-2. For a new alert the API starts a Temporal workflow (`triage-<id>`) and returns right away.
-3. A worker picks up the workflow: status becomes `triaging`, then it looks up the service and its team in Postgres.
-4. One LLM call returns a structured triage. If it fails it is retried, 3 attempts in total.
-5. The result is saved and status becomes `triaged`. If all 3 attempts fail the status becomes `failed`.
+1. `POST /alerts` validates and saves the alert as `received`. Same service + message as an existing alert returns that alert, no new workflow.
+2. The API starts workflow `triage-<id>` and returns.
+3. The worker marks it `triaging`, looks up the service's team, makes one LLM call (3 attempts), saves the result, marks it `triaged`. If all 3 attempts fail it is marked `failed`.
 
-## Where is what
+## Run
 
-- `docker-compose.yml`: Postgres and Temporal containers.
-- `.env.example`: all environment variables, copy to `.env`.
-- `backend/manage.py`: Django entry point (migrate, seed, runserver).
-- `backend/worker.py`: starts the Temporal worker.
-- `backend/alert_triage/settings.py`: Django settings (database, Temporal address, task queue).
-- `backend/alert_triage/urls.py`: mounts the API.
-- `backend/alerts/models.py`: Team, Service, Alert, TriageResult.
-- `backend/alerts/api.py`: the three routes, `POST /alerts`, `GET /alerts`, `GET /alerts/{id}`.
-- `backend/alerts/start_workflow.py`: starts the Temporal workflow for a new alert.
-- `backend/alerts/workflow.py`: the workflow, which runs the activities in order and handles the retries.
-- `backend/alerts/activities.py`: the steps: mark triaging, look up team, call the LLM, save result, mark triaged, mark failed.
-- `backend/alerts/ai.py`: the one Pydantic AI call (local stand-in without a key, OpenRouter with one).
-- `backend/alerts/management/commands/seed.py`: creates 2 teams and 3 services.
-- `backend/alerts/test_alerts.py`: the pytest tests.
-- `frontend/src/App.jsx`: page layout and the 3 second refresh of the list.
-- `frontend/src/AlertForm.jsx`: JSON textarea and Submit button.
-- `frontend/src/AlertList.jsx`: the alert table.
-- `frontend/src/Severity.jsx`: the small colored severity badge.
-- `frontend/src/AlertDetail.jsx`: probable cause, confidence bar, severity, numbered action items.
-- `frontend/src/api.js`: fetch calls to the backend, URL from `VITE_API_URL`.
-- `frontend/src/style.css`: all styles.
+Needs Docker, Python 3.12+, Node 20+.
 
-## Run it
+```
+cp .env.example .env
+docker compose up -d
 
-You need Docker, Python 3.12+ and Node 20+.
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed
+python manage.py runserver 8000     # terminal 1
+python worker.py                    # terminal 2, same venv
 
-1. Start Postgres and Temporal:
+cd frontend
+cp .env.example .env
+npm install
+npm run dev                         # terminal 3
+```
 
-   ```
-   cp .env.example .env
-   docker compose up -d
-   ```
+UI at http://localhost:5173, Temporal UI at http://localhost:8233. Tests: `cd backend && pytest` (Postgres must be up).
 
-2. Backend setup:
+```
+curl -X POST localhost:8000/alerts -H 'content-type: application/json' \
+  -d '{"service":"checkout-api","message":"5xx rate above 20%","severity_hint":"high","timestamp":"2026-10-22T10:00:00Z"}'
+```
 
-   ```
-   cd backend
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install -r requirements.txt
-   python manage.py migrate
-   python manage.py seed
-   ```
-
-3. Start the API (terminal 1) and the Temporal worker (terminal 2, same venv):
-
-   ```
-   python manage.py runserver 8000
-   python worker.py
-   ```
-
-4. Start the frontend (terminal 3):
-
-   ```
-   cd frontend
-   cp .env.example .env
-   npm install
-   npm run dev
-   ```
-
-   Open http://localhost:5173. The Temporal UI is at http://localhost:8233.
-
-5. Or try it from the shell:
-
-   ```
-   curl -X POST localhost:8000/alerts -H 'content-type: application/json' \
-     -d '{"service":"checkout-api","message":"5xx rate above 20%","severity_hint":"high","timestamp":"2026-10-22T10:00:00Z"}'
-   curl localhost:8000/alerts
-   curl localhost:8000/alerts/1
-   ```
-
-Tests: `cd backend && pytest` (needs the Postgres container running).
-
-LLM: with no `OPENROUTER_API_KEY` the call uses a local stand-in, not a real model. It is a Pydantic AI `FunctionModel` in `ai.py` that looks for words in the alert ("5xx", "timeout", "disk full", "cert expires") and returns a fixed, believable triage for each, or a generic one. It exists so the whole flow can be run and demoed offline. Its answers are canned, not reasoning. Put a key in `.env`, and optionally `OPENROUTER_MODEL`, to use a real free model.
+With no `OPENROUTER_API_KEY`, `ai.py` uses a local stand-in (a Pydantic AI `FunctionModel`) that matches keywords like "5xx" or "timeout" and returns canned triages. It is for running the flow offline, not real analysis. Set the key (and optionally `OPENROUTER_MODEL`) in `.env` to use a real model.
 
 ## API
 
-- `POST /alerts` takes `service`, `message`, optional `severity_hint` and `timestamp`. Returns the alert. Bad input gives 422. If the workflow service is down it gives 503 and the alert is not kept, so the caller can just retry.
-- `GET /alerts` lists alerts with status, severity (once triaged) and received time, newest first.
-- `GET /alerts/{id}` returns the alert and its triage result (`null` until triaged), or 404.
+- `POST /alerts`: `service`, `message`, optional `severity_hint`, `timestamp`. 422 on bad input. 503 if Temporal is unreachable (the alert is not kept, so retry is safe).
+- `GET /alerts`: newest first, with status, severity and received time.
+- `GET /alerts/{id}`: the alert and its triage result (`null` until triaged), or 404.
 
-## Design decisions and trade-offs
+## Decisions
 
-**Why Temporal for the retries.** The LLM call is the part that fails: rate limits, timeouts, bad output. I did not want a retry loop inside a request handler, and I did not want a request to wait for the model. With Temporal the API returns right away, the worker does the slow part, and the retry policy (3 attempts, one line in `workflow.py`) is not code I have to write or test. If the worker dies halfway, Temporal continues the workflow when it comes back instead of leaving the alert stuck in `triaging`. The cost is two more moving parts (a Temporal server and a worker process) for a very small flow.
+- **Temporal for retries.** The LLM call is what fails. Temporal lets the API return immediately, the worker retry the call, and a crashed worker resume instead of leaving an alert stuck in `triaging`. Cost: a Temporal server and a worker for a small flow.
+- **Dedupe on service + message.** A unique constraint with `get_or_create`, so concurrent duplicates can't create two rows. Downside: the same message a week later is also a duplicate.
+- **One LLM call, structured output.** `run_triage` in `ai.py` returns a `Triage` model (confidence 0 to 1, severity Sev1 to Sev4). A bad answer counts as a failed attempt and is retried rather than saved.
+- `Alert.service` is a plain string, so alerts from unknown services are still triaged, with the team shown as unknown.
+- Only the LLM activity has a 3-attempt limit; the DB activities use Temporal's default retry.
+- The UI polls every 3 seconds.
 
-**Why dedupe on service plus message.** Monitoring tools often send the same alert again and again. The same service with the same message is the same problem, so I return the existing alert and do not start a second workflow. It is a unique constraint in the database plus `get_or_create`, so two requests arriving at the same moment still cannot create two rows. The downside is that the same message sent a week later is also treated as a duplicate. A time window or a fingerprint field would fix that, but the brief did not ask for it.
+## Limits
 
-**Why one AI call.** One call with one structured answer is easy to retry, easy to test and easy to swap. All of it lives in one function, `run_triage` in `ai.py`, so changing the model, the prompt or the provider touches one file. Splitting it into several calls (cause, then severity, then actions) would add more places to fail and more cost with no clear gain at this size.
+- No auth, open CORS, `DEBUG` on. Local use only.
+- Temporal runs as the in-memory dev server; history is lost on restart.
+- A new Temporal connection per `POST /alerts`. No pagination on `GET /alerts`. A very long message can break the unique index.
+- Tests call activities directly, not the workflow (the Temporal test server is a separate download). The retries and `failed` status were checked by hand with a bad API key.
+- A real OpenRouter call with a valid key is untested; free models may not follow the structured format.
 
-**Why structured output.** The result goes into database columns and a UI, so it must have a known shape. Pydantic AI makes the model return the `Triage` class: confidence has to be between 0 and 1 and severity has to be one of Sev1 to Sev4. If the model answers with something that does not fit, that counts as a failed attempt and gets retried, instead of saving bad data.
+## Next
 
-**Other choices.**
-- Only the AI activity has a retry limit. The database activities use Temporal's default retry, which is fine for short database calls.
-- Activities are plain sync functions run in a thread pool, so the Django ORM works without async wrappers.
-- `Alert.service` is a plain string, not a foreign key to `Service`. Alerts from unknown services are still accepted and triaged with the team marked unknown.
-- `save_result` uses `update_or_create`, so a retried activity does not fail on the one-to-one.
-- The frontend polls every 3 seconds. Simple, and enough here.
-
-## Known limits
-
-- No auth, open CORS, `DEBUG` on. This is for local testing only.
-- The Temporal container is the in-memory dev server. Workflow history is lost when it restarts.
-- A new Temporal connection is opened for every `POST /alerts`. Fine here, a shared client would be better under load.
-- A very long alert message can break the unique index in Postgres.
-- No pagination on `GET /alerts`.
-- With the local stand-in the status moves through `triaging` too fast to see in the UI, and its answers are canned.
-- The tests call the activities directly. They do not run the workflow itself, because the Temporal test server needs a separate download. I checked the 3 retries and the `failed` status by hand with an invalid API key.
-- A real OpenRouter call with a valid key is not tested. Free models may not always follow the structured format.
-
-## What I'd do next
-
-- SLA timers and escalation with Temporal signals: after triage the workflow waits for an `acknowledge` signal from the on-call person. If it does not arrive before a timer based on severity (for example 5 minutes for Sev1), the workflow escalates to the next contact. An API call sends the signal and ends the wait.
-- Run the workflow in the Temporal test environment in CI so the retry behaviour is tested, not only the activities.
-- Link alerts to services with a foreign key and give the model recent alerts of the same service as context.
-- Pagination and a status filter on the alert list.
-- Per-environment config, auth, and a persistent Temporal setup.
+- Escalation: after triage, wait for an `acknowledge` signal; if none arrives within a severity-based timer, escalate.
+- Run the workflow in Temporal's test environment in CI.
+- Foreign key from alerts to services, and recent alerts as model context.
+- Pagination, status filter, auth, persistent Temporal.

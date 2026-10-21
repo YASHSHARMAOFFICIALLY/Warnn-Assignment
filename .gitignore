@@ -5,3 +5,5 @@ __pycache__/
 node_modules/
 dist/
 .pytest_cache/
+live-coding-prep.md
+walkthrough.md
