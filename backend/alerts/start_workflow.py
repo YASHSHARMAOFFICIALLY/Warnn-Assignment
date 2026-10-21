@@ -1,7 +1,7 @@
 from django.conf import settings
 from temporalio.client import Client
 
-from .workflows import TriageWorkflow
+from .workflow import TriageWorkflow
 
 
 async def start_triage(alert_id: int) -> None:

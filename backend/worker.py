@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "alert_triage.settings")
 django.setup()
 
 from django.conf import settings  # noqa: E402
@@ -12,7 +12,7 @@ from temporalio.client import Client  # noqa: E402
 from temporalio.worker import Worker  # noqa: E402
 
 from alerts import activities  # noqa: E402
-from alerts.workflows import TriageWorkflow  # noqa: E402
+from alerts.workflow import TriageWorkflow  # noqa: E402
 
 
 async def main():

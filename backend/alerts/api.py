@@ -5,7 +5,7 @@ from asgiref.sync import async_to_sync
 from django.shortcuts import get_object_or_404
 from ninja import NinjaAPI, Schema
 
-from . import client
+from . import start_workflow
 from .models import Alert
 
 api = NinjaAPI()
@@ -46,7 +46,7 @@ def create_alert(request, payload: AlertIn):
         defaults={"severity_hint": payload.severity_hint, "timestamp": payload.timestamp},
     )
     if created:
-        async_to_sync(client.start_triage)(alert.id)
+        async_to_sync(start_workflow.start_triage)(alert.id)
     return alert
 
 

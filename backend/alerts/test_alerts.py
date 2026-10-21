@@ -12,7 +12,7 @@ ALERT = {"service": "checkout-api", "message": "500s spiking", "severity_hint": 
 
 @pytest.fixture(autouse=True)
 def fake_workflow():
-    with patch("alerts.client.start_triage", new=AsyncMock()) as m:
+    with patch("alerts.start_workflow.start_triage", new=AsyncMock()) as m:
         yield m
 
 

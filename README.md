@@ -4,6 +4,29 @@ Small test project. You paste a raw alert as JSON, the backend saves it and star
 
 Stack: Django + Django Ninja, Temporal (Python SDK), Pydantic AI, PostgreSQL, React + Vite.
 
+## Where is what
+
+- `docker-compose.yml`: Postgres and Temporal containers.
+- `.env.example`: all environment variables, copy to `.env`.
+- `backend/manage.py`: Django entry point (migrate, seed, runserver).
+- `backend/worker.py`: starts the Temporal worker.
+- `backend/alert_triage/settings.py`: Django settings (database, Temporal address, task queue).
+- `backend/alert_triage/urls.py`: mounts the API.
+- `backend/alerts/models.py`: Team, Service, Alert, TriageResult.
+- `backend/alerts/api.py`: the three routes, `POST /alerts`, `GET /alerts`, `GET /alerts/{id}`.
+- `backend/alerts/start_workflow.py`: starts the Temporal workflow for a new alert.
+- `backend/alerts/workflow.py`: the workflow, which runs the activities in order and handles the 3 retries.
+- `backend/alerts/activities.py`: the steps: look up team, call AI, save result, mark triaged, mark failed.
+- `backend/alerts/ai.py`: the one Pydantic AI call (TestModel without a key, OpenRouter with one).
+- `backend/alerts/management/commands/seed.py`: creates 2 teams and 3 services.
+- `backend/alerts/test_alerts.py`: the pytest tests.
+- `frontend/src/App.jsx`: page layout and the 3 second refresh of the list.
+- `frontend/src/AlertForm.jsx`: JSON textarea and Submit button.
+- `frontend/src/AlertList.jsx`: the alert table.
+- `frontend/src/AlertDetail.jsx`: probable cause, confidence, severity, action items.
+- `frontend/src/api.js`: fetch calls to the backend, URL from `VITE_API_URL`.
+- `frontend/src/style.css`: all styles.
+
 ## Run it
 
 You need Docker, Python 3.12+ and Node 20+.

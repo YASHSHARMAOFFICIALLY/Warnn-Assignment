@@ -22,7 +22,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "alert_triage.urls"
 
 DATABASES = {
     "default": {
