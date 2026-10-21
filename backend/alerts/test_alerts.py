@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from . import activities
+from .ai import run_triage
 from .models import Alert, Service, Team, TriageResult
 
 pytestmark = pytest.mark.django_db
@@ -83,6 +84,24 @@ def test_activities_in_order():
     alert.refresh_from_db()
     assert alert.status == "triaged"
     assert alert.result.severity in ["Sev1", "Sev2", "Sev3", "Sev4"]
+
+
+@pytest.mark.parametrize(
+    "message, severity, word",
+    [
+        ("5xx rate above 20%", "Sev2", "dependency"),
+        ("payment timeouts", "Sev2", "dependency"),
+        ("disk full on node 7", "Sev3", "volume"),
+        ("cert expires in 2 days", "Sev3", "certificate"),
+        ("something odd happened", "Sev3", "Not enough detail"),
+    ],
+)
+def test_local_model_answers_from_alert_text(monkeypatch, message, severity, word):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    result = run_triage({"service": "x", "message": message, "severity_hint": ""}, None, None)
+    assert result.severity == severity
+    assert word in result.probable_cause
+    assert len(result.action_items) == 3
 
 
 def test_failed_ai_call_marks_failed():

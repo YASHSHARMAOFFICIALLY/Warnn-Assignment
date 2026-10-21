@@ -25,7 +25,7 @@ Stack: Django + Django Ninja, Temporal (Python SDK), Pydantic AI, PostgreSQL, Re
 - `backend/alerts/start_workflow.py`: starts the Temporal workflow for a new alert.
 - `backend/alerts/workflow.py`: the workflow, which runs the activities in order and handles the retries.
 - `backend/alerts/activities.py`: the steps: mark triaging, look up team, call the LLM, save result, mark triaged, mark failed.
-- `backend/alerts/ai.py`: the one Pydantic AI call (test model without a key, OpenRouter with one).
+- `backend/alerts/ai.py`: the one Pydantic AI call (local stand-in without a key, OpenRouter with one).
 - `backend/alerts/management/commands/seed.py`: creates 2 teams and 3 services.
 - `backend/alerts/test_alerts.py`: the pytest tests.
 - `frontend/src/App.jsx`: page layout and the 3 second refresh of the list.
@@ -85,7 +85,7 @@ You need Docker, Python 3.12+ and Node 20+.
 
 Tests: `cd backend && pytest` (needs the Postgres container running).
 
-LLM: with no `OPENROUTER_API_KEY` the call uses Pydantic AI's `TestModel`, which returns dummy data (cause "a", confidence 0). Put a key in `.env`, and optionally `OPENROUTER_MODEL`, to use a real free model.
+LLM: with no `OPENROUTER_API_KEY` the call uses a local stand-in, not a real model. It is a Pydantic AI `FunctionModel` in `ai.py` that looks for words in the alert ("5xx", "timeout", "disk full", "cert expires") and returns a fixed, believable triage for each, or a generic one. It exists so the whole flow can be run and demoed offline. Its answers are canned, not reasoning. Put a key in `.env`, and optionally `OPENROUTER_MODEL`, to use a real free model.
 
 ## API
 
@@ -117,7 +117,7 @@ LLM: with no `OPENROUTER_API_KEY` the call uses Pydantic AI's `TestModel`, which
 - A new Temporal connection is opened for every `POST /alerts`. Fine here, a shared client would be better under load.
 - A very long alert message can break the unique index in Postgres.
 - No pagination on `GET /alerts`.
-- With the test model the status moves through `triaging` too fast to see in the UI.
+- With the local stand-in the status moves through `triaging` too fast to see in the UI, and its answers are canned.
 - The tests call the activities directly. They do not run the workflow itself, because the Temporal test server needs a separate download. I checked the 3 retries and the `failed` status by hand with an invalid API key.
 - A real OpenRouter call with a valid key is not tested. Free models may not always follow the structured format.
 
