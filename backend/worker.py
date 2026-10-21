@@ -22,6 +22,7 @@ async def main():
         task_queue=settings.TASK_QUEUE,
         workflows=[TriageWorkflow],
         activities=[
+            activities.mark_triaging,
             activities.lookup_service,
             activities.triage_with_ai,
             activities.save_result,
