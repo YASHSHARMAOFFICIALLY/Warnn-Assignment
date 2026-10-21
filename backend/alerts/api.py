@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Optional
 
 from asgiref.sync import async_to_sync
 from django.shortcuts import get_object_or_404
-from ninja import NinjaAPI, Schema
+from ninja import Field, NinjaAPI, Schema
+from ninja.errors import HttpError
 
 from . import start_workflow
 from .models import Alert
@@ -12,13 +12,13 @@ api = NinjaAPI()
 
 
 class AlertIn(Schema):
-    service: str
-    message: str
-    severity_hint: str = ""
-    timestamp: Optional[datetime] = None
+    service: str = Field(min_length=1, max_length=100)
+    message: str = Field(min_length=1)
+    severity_hint: str = Field("", max_length=20)
+    timestamp: datetime | None = None
 
 
-class ResultOut(Schema):
+class TriageResultOut(Schema):
     probable_cause: str
     confidence: float
     severity: str
@@ -30,12 +30,12 @@ class AlertOut(Schema):
     service: str
     message: str
     severity_hint: str
-    timestamp: Optional[datetime]
+    timestamp: datetime | None
     status: str
 
 
 class AlertDetailOut(AlertOut):
-    result: Optional[ResultOut] = None
+    result: TriageResultOut | None = None
 
 
 @api.post("/alerts", response=AlertOut)
@@ -46,7 +46,12 @@ def create_alert(request, payload: AlertIn):
         defaults={"severity_hint": payload.severity_hint, "timestamp": payload.timestamp},
     )
     if created:
-        async_to_sync(start_workflow.start_triage)(alert.id)
+        try:
+            async_to_sync(start_workflow.start_triage)(alert.id)
+        except Exception:
+            # no workflow means nobody will ever triage it, so drop it and let the caller retry
+            alert.delete()
+            raise HttpError(503, "Could not start triage, workflow service is unavailable")
     return alert
 
 
@@ -57,7 +62,5 @@ def list_alerts(request):
 
 @api.get("/alerts/{alert_id}", response=AlertDetailOut)
 def get_alert(request, alert_id: int):
-    alert = get_object_or_404(Alert.objects.select_related("result"), id=alert_id)
-    out = AlertDetailOut.from_orm(alert)
-    out.result = getattr(alert, "result", None) and ResultOut.from_orm(alert.result)
-    return out
+    # alert.result raises when there is no result yet, ninja treats that as missing and returns null
+    return get_object_or_404(Alert.objects.select_related("result"), id=alert_id)

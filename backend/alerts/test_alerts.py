@@ -12,8 +12,8 @@ ALERT = {"service": "checkout-api", "message": "500s spiking", "severity_hint": 
 
 @pytest.fixture(autouse=True)
 def fake_workflow():
-    with patch("alerts.start_workflow.start_triage", new=AsyncMock()) as m:
-        yield m
+    with patch("alerts.start_workflow.start_triage", new=AsyncMock()) as mock:
+        yield mock
 
 
 def post(client, body=ALERT):
@@ -36,6 +36,19 @@ def test_duplicate_returns_existing(client, fake_workflow):
     fake_workflow.assert_awaited_once()
 
 
+def test_invalid_alert_rejected(client):
+    assert post(client, {"service": "", "message": "x"}).status_code == 422
+    assert post(client, {"message": "x"}).status_code == 422
+    assert Alert.objects.count() == 0
+
+
+def test_workflow_down_returns_503_and_keeps_nothing(client, fake_workflow):
+    fake_workflow.side_effect = RuntimeError("temporal down")
+    res = post(client)
+    assert res.status_code == 503
+    assert Alert.objects.count() == 0
+
+
 def test_get_result(client):
     alert = Alert.objects.create(service="checkout-api", message="x", status="triaged")
     TriageResult.objects.create(
@@ -47,16 +60,25 @@ def test_get_result(client):
     assert client.get("/alerts").json()[0]["status"] == "triaged"
 
 
-def test_activities_save_result():
+def test_get_alert_without_result_and_missing_alert(client):
+    alert = Alert.objects.create(**ALERT)
+    assert client.get(f"/alerts/{alert.id}").json()["result"] is None
+    assert client.get("/alerts/9999").status_code == 404
+
+
+def test_activities_in_order():
     team = Team.objects.create(name="Payments", oncall="a@b.c")
     Service.objects.create(name="checkout-api", team=team)
     alert = Alert.objects.create(**ALERT)
-    data = activities.lookup_service(alert.id)
-    assert data["context"]["team"] == "Payments"
+
+    activities.mark_triaging(alert.id)
     alert.refresh_from_db()
     assert alert.status == "triaging"
-    result = activities.triage_with_ai(data)
-    activities.save_result(alert.id, result)
+
+    data = activities.lookup_service(alert.id)
+    assert data["team"] == "Payments"
+
+    activities.save_result(alert.id, activities.triage_with_ai(data))
     activities.mark_triaged(alert.id)
     alert.refresh_from_db()
     assert alert.status == "triaged"
