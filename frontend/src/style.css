@@ -1,0 +1,111 @@
+:root {
+  --bg: #f6f6f5;
+  --panel: #ffffff;
+  --line: #d9d9d6;
+  --text: #1f2328;
+  --muted: #5c636b;
+  --accent: #1f4e79;
+  --ok: #1a6b3a;
+  --bad: #a12622;
+  --warn: #8a5a00;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  padding: 10px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; }
+}
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 16px;
+  align-self: start;
+}
+
+h2 { font-size: 16px; margin: 0 0 8px; }
+
+label { display: block; margin-bottom: 4px; font-weight: 600; }
+
+textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace;
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  margin: 8px 0 20px;
+  padding: 6px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+
+button[type="submit"]:disabled { opacity: 0.5; cursor: default; }
+
+button.link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  text-align: left;
+}
+
+button.link:hover { text-decoration: underline; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th { font-weight: 600; color: var(--muted); }
+
+tr.selected { background: #eef2f6; }
+
+.status { font-weight: 600; color: var(--muted); }
+.status.triaged { color: var(--ok); }
+.status.failed { color: var(--bad); }
+.status.triaging { color: var(--warn); }
+
+.muted { color: var(--muted); }
+.error { color: var(--bad); margin: 8px 0; }
+
+dt { font-weight: 600; margin-top: 12px; }
+dd { margin: 2px 0 0; }
+ul { margin: 0; padding-left: 18px; }
