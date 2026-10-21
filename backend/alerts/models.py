@@ -32,7 +32,7 @@ class Alert(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # ponytail: btree index breaks on very long messages, hash the message if that happens
+        # a unique index on a very long message can fail in Postgres, hash the message if that ever happens
         constraints = [models.UniqueConstraint(fields=["service", "message"], name="unique_alert")]
 
 

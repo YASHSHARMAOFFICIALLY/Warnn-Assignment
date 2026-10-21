@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR.parent / ".env")
 
-SECRET_KEY = "test-only-not-secret"
-DEBUG = True
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-secret-key")
+DEBUG = True  # local testing only
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
